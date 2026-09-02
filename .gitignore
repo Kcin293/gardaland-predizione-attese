@@ -1,0 +1,9 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+seed/*.sql
+models/
+reports/*.png
+reports/*.json
