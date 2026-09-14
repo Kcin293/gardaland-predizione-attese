@@ -35,3 +35,8 @@ def salva_meteo(meteo: dict, engine):
 def print_meteo_count(engine):
     risultato = pd.read_sql("SELECT count(*) FROM meteo", engine)
     print(f"Numero di dati meteorologici nel database: {risultato.iloc[0, 0]}")
+
+
+def get_totale_giornaliero(engine):
+    risultato = pd.read_sql("SELECT * FROM totale_giornaliero", engine)
+    return risultato
