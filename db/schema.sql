@@ -46,8 +46,12 @@ CREATE TABLE IF NOT EXISTS public.model_runs (
     best_rmse         double precision,
     best_r2           double precision,
     n_training_rows   integer,
-    metrics_json      jsonb
+    metrics_json      jsonb,
+    livello           text
 );
+
+-- Su database creati prima dei tre livelli di previsione la colonna manca.
+ALTER TABLE public.model_runs ADD COLUMN IF NOT EXISTS livello text;
 
 -- === View di aggregazione giornaliera (identiche al dump originale) ===
 

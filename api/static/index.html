@@ -1,0 +1,757 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gardaland Wait-Time Predictor</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎢</text></svg>">
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+<style>
+  :root {
+    --bg: #0b1020;
+    --bg-soft: #121a33;
+    --card: #151d38;
+    --card-2: #1b2547;
+    --line: #27325c;
+    --txt: #eef2ff;
+    --txt-dim: #a3aecd;
+    --txt-faint: #7b87ab;
+    --accent: #7c5cff;
+    --accent-2: #22d3ee;
+    --ok: #34d399;
+    --warn: #fbbf24;
+    --hot: #fb923c;
+    --max: #f4507a;
+    --radius: 16px;
+    --shadow: 0 10px 30px rgba(0, 0, 0, .35);
+  }
+
+  * { box-sizing: border-box; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    padding: 0;
+    background:
+      radial-gradient(1100px 600px at 12% -10%, #2a1b5e 0%, transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, #0d3b52 0%, transparent 55%),
+      var(--bg);
+    color: var(--txt);
+    font: 16px/1.55 "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh;
+  }
+
+  .wrap {
+    width: 100%;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 28px 18px 64px;
+  }
+
+  /* ---------- Testata ---------- */
+  header.top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 26px;
+  }
+
+  .logo {
+    width: 54px;
+    height: 54px;
+    display: grid;
+    place-items: center;
+    font-size: 28px;
+    border-radius: 15px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    box-shadow: var(--shadow);
+    flex: none;
+  }
+
+  .titolo { flex: 1 1 260px; min-width: 0; }
+
+  .titolo h1 {
+    margin: 0;
+    font-size: clamp(1.35rem, 1rem + 1.6vw, 2rem);
+    letter-spacing: -.02em;
+    line-height: 1.15;
+  }
+
+  .titolo p {
+    margin: 4px 0 0;
+    color: var(--txt-dim);
+    font-size: .95rem;
+  }
+
+  .fonti {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 12px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .04);
+    color: var(--txt-dim);
+    font-size: .82rem;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .chip:hover { border-color: var(--accent); color: var(--txt); }
+  .chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-2); flex: none; }
+  .chip.meteo .dot { background: var(--accent); }
+
+  /* ---------- Griglie e card ---------- */
+  .griglia {
+    display: grid;
+    gap: 18px;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  }
+
+  .card {
+    background: linear-gradient(180deg, var(--card), var(--card-2));
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--shadow);
+  }
+
+  section { margin-top: 30px; }
+
+  .sezione-testa {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px 14px;
+    margin-bottom: 14px;
+  }
+
+  .sezione-testa h2 {
+    margin: 0;
+    font-size: 1.1rem;
+    letter-spacing: .01em;
+  }
+
+  .sezione-testa .nota { color: var(--txt-faint); font-size: .85rem; }
+
+  /* ---------- Card previsione totale ---------- */
+  .hero {
+    display: grid;
+    gap: 22px;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    align-items: center;
+  }
+
+  .hero-num {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .hero-num strong {
+    font-size: clamp(3rem, 2rem + 7vw, 5.2rem);
+    font-weight: 700;
+    line-height: .95;
+    letter-spacing: -.04em;
+    background: linear-gradient(135deg, #fff, var(--accent-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .hero-num span { color: var(--txt-dim); font-size: 1.05rem; }
+
+  .etichetta {
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    font-size: .72rem;
+    color: var(--txt-faint);
+    margin-bottom: 6px;
+  }
+
+  .giorno { font-size: 1.05rem; font-weight: 600; }
+
+  .barra-hero { height: 12px; margin-top: 18px; }
+
+  .meta-griglia {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+
+  .meta {
+    background: rgba(255, 255, 255, .04);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px 14px;
+  }
+
+  .meta b { display: block; font-size: 1.2rem; font-weight: 650; line-height: 1.25; }
+  .meta small {
+    display: block;
+    margin-top: 2px;
+    color: var(--txt-faint);
+    font-size: .74rem;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+
+  /* ---------- Barre ---------- */
+  .barra {
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .07);
+    overflow: hidden;
+  }
+
+  .barra > i {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    transition: width .5s ease;
+  }
+
+  .liv-ok > i    { background: linear-gradient(90deg, #10b981, var(--ok)); }
+  .liv-medio > i { background: linear-gradient(90deg, #d9a520, var(--warn)); }
+  .liv-alto > i  { background: linear-gradient(90deg, #ea7c2b, var(--hot)); }
+  .liv-max > i   { background: linear-gradient(90deg, #d83a64, var(--max)); }
+
+  /* ---------- Reami ---------- */
+  .reame-card { display: flex; flex-direction: column; gap: 12px; }
+  .reame-card h3 { margin: 0; font-size: 1rem; }
+  .reame-val { display: flex; align-items: baseline; gap: 8px; }
+  .reame-val b { font-size: 2.1rem; letter-spacing: -.03em; line-height: 1; }
+  .reame-val span { color: var(--txt-faint); font-size: .85rem; }
+
+  /* ---------- Giostre ---------- */
+  .strumenti {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  input[type="search"], select {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    color: var(--txt);
+    padding: 11px 14px;
+    font: inherit;
+    font-size: .92rem;
+    min-width: 0;
+  }
+
+  input[type="search"] { flex: 1 1 220px; }
+  select { flex: 0 1 190px; }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  ol.giostre { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+
+  ol.giostre li {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+    background: linear-gradient(180deg, var(--card), var(--card-2));
+    border: 1px solid var(--line);
+    border-radius: 13px;
+    padding: 13px 16px;
+  }
+
+  ol.giostre .pos {
+    color: var(--txt-faint);
+    font-variant-numeric: tabular-nums;
+    font-size: .9rem;
+    text-align: right;
+  }
+
+  .g-nome { font-weight: 600; overflow-wrap: anywhere; }
+  .g-reame { color: var(--txt-faint); font-size: .78rem; }
+  .g-barra { margin-top: 8px; }
+
+  .g-val {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .g-val b { font-size: 1.35rem; letter-spacing: -.02em; }
+  .g-val small { color: var(--txt-faint); display: block; font-size: .72rem; }
+
+  /* ---------- Tab modelli ---------- */
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  .tab {
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, .03);
+    color: var(--txt-dim);
+    font: inherit;
+    font-size: .85rem;
+    cursor: pointer;
+  }
+
+  .tab[aria-selected="true"] {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    border-color: transparent;
+    color: #0b1020;
+    font-weight: 650;
+  }
+
+  .grafico { width: 100%; min-height: 320px; }
+
+  /* ---------- Stati ---------- */
+  .skeleton {
+    border-radius: 10px;
+    background: linear-gradient(90deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, .12), rgba(255, 255, 255, .05));
+    background-size: 200% 100%;
+    animation: shimmer 1.3s infinite linear;
+    color: transparent;
+  }
+
+  @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+  .errore {
+    border: 1px solid #6d2440;
+    background: rgba(244, 80, 122, .12);
+    color: #ffc9d7;
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-size: .9rem;
+  }
+
+  .vuoto { color: var(--txt-faint); font-size: .9rem; padding: 10px 2px; }
+
+  footer {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    color: var(--txt-faint);
+    font-size: .85rem;
+  }
+
+  footer a { color: var(--txt-dim); }
+  footer p { margin: 6px 0; }
+
+  @media (max-width: 760px) {
+    .hero { grid-template-columns: 1fr; }
+    ol.giostre li { grid-template-columns: 28px minmax(0, 1fr) auto; gap: 10px; padding: 12px; }
+    .wrap { padding: 20px 14px 48px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="logo" aria-hidden="true">🎢</div>
+    <div class="titolo">
+      <h1>Gardaland Wait-Time Predictor</h1>
+      <p>Previsione delle code per domani: totale parco, per reame e per singola giostra.</p>
+    </div>
+    <div class="fonti">
+      <a class="chip" href="https://queue-times.com/parks/12/queue_times.json" target="_blank" rel="noopener">
+        <span class="dot"></span> Dati code: API Queue-Times
+      </a>
+      <a class="chip meteo" href="https://open-meteo.com/" target="_blank" rel="noopener">
+        <span class="dot"></span> Dati meteo: API Open-Meteo
+      </a>
+    </div>
+  </header>
+
+  <!-- ===== Previsione totale ===== -->
+  <section aria-labelledby="h-totale">
+    <div class="sezione-testa">
+      <h2 id="h-totale">Previsione totale</h2>
+      <span class="nota" id="nota-totale">Media del parco sulle attrazioni principali</span>
+    </div>
+    <div class="card hero" id="hero">
+      <div>
+        <div class="etichetta">Coda media prevista</div>
+        <div class="hero-num">
+          <strong class="skeleton" id="tot-valore">--</strong>
+          <span>minuti</span>
+        </div>
+        <div class="giorno" id="tot-giorno">&nbsp;</div>
+        <div class="barra barra-hero" id="tot-barra-wrap"><i id="tot-barra" style="width:0"></i></div>
+      </div>
+      <div class="meta-griglia" id="tot-meta"></div>
+    </div>
+  </section>
+
+  <!-- ===== Per reame ===== -->
+  <section aria-labelledby="h-reami">
+    <div class="sezione-testa">
+      <h2 id="h-reami">Previsione per reame</h2>
+      <span class="nota" id="nota-reami"></span>
+    </div>
+    <div class="griglia" id="reami"></div>
+  </section>
+
+  <!-- ===== Per giostra ===== -->
+  <section aria-labelledby="h-giostre">
+    <div class="sezione-testa">
+      <h2 id="h-giostre">Previsione per giostra</h2>
+      <span class="nota" id="nota-giostre"></span>
+    </div>
+    <div class="strumenti">
+      <input type="search" id="cerca" placeholder="Cerca una giostra…" aria-label="Cerca una giostra">
+      <select id="filtro-reame" aria-label="Filtra per reame"><option value="">Tutti i reami</option></select>
+      <select id="ordine" aria-label="Ordina">
+        <option value="coda">Coda più lunga</option>
+        <option value="coda-asc">Coda più corta</option>
+        <option value="nome">Nome (A-Z)</option>
+      </select>
+    </div>
+    <ol class="giostre" id="giostre"></ol>
+  </section>
+
+  <!-- ===== Storico ===== -->
+  <section aria-labelledby="h-storico">
+    <div class="sezione-testa">
+      <h2 id="h-storico">Storico code e meteo</h2>
+      <span class="nota">Rilevazioni Queue-Times e Open-Meteo salvate a intervalli di 15 minuti</span>
+    </div>
+    <div class="card"><div class="grafico" id="graf-storico"></div></div>
+  </section>
+
+  <!-- ===== Modelli ===== -->
+  <section aria-labelledby="h-modelli">
+    <div class="sezione-testa">
+      <h2 id="h-modelli">Qualità dei modelli</h2>
+      <div class="tabs" id="tab-modelli"></div>
+    </div>
+    <div class="card">
+      <p class="nota" id="nota-modelli" style="margin-top:0"></p>
+      <div class="grafico" id="graf-modelli"></div>
+    </div>
+  </section>
+
+  <footer>
+    <p><strong>Fonti dei dati.</strong> I tempi di attesa provengono dall'API pubblica di
+      <a href="https://queue-times.com/parks/12/queue_times.json" target="_blank" rel="noopener">queue-times.com</a>
+      (parco 12 — Gardaland); temperatura percepita e precipitazioni, sia osservate sia previste, dall'API
+      <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>
+      per le coordinate del parco (45.4544, 10.7139).</p>
+    <p>Le previsioni sono stime statistiche prodotte da modelli allenati sullo storico raccolto: indicano
+      l'andamento atteso, non il tempo di attesa garantito.</p>
+  </footer>
+
+</div>
+
+<script>
+const fmt = (n, d = 1) => Number(n).toLocaleString('it-IT', { minimumFractionDigits: d, maximumFractionDigits: d });
+const el = (id) => document.getElementById(id);
+
+/* Scala colore condivisa da tutte le barre: 0-5 / 5-15 / 15-30 / 30+ minuti. */
+function livello(min) {
+  if (min < 5) return 'liv-ok';
+  if (min < 15) return 'liv-medio';
+  if (min < 30) return 'liv-alto';
+  return 'liv-max';
+}
+
+const SCALA_MAX = 45; // minuti che riempiono una barra al 100%
+const perc = (min) => Math.max(2, Math.min(100, (min / SCALA_MAX) * 100));
+
+const maiuscola = (t) => t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
+
+function dataLunga(iso) {
+  const d = new Date(iso + 'T12:00:00');
+  if (isNaN(d)) return iso;
+  return maiuscola(d.toLocaleDateString('it-IT',
+    { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }));
+}
+
+function badgeModello(info) {
+  if (!info || !info.modello) return '';
+  const r2 = info.r2 == null ? '—' : fmt(info.r2, 2);
+  const mae = info.mae == null ? '—' : fmt(info.mae, 1);
+  return `modello ${info.modello} · R² ${r2} · errore medio ±${mae} min`;
+}
+
+function mostraErrore(contenitore, messaggio) {
+  contenitore.innerHTML = `<div class="errore">${messaggio}</div>`;
+}
+
+async function json(url) {
+  const r = await fetch(url);
+  if (!r.ok) {
+    const corpo = await r.json().catch(() => ({}));
+    throw new Error(corpo.detail || `Errore ${r.status} su ${url}`);
+  }
+  return r.json();
+}
+
+/* ============ Previsione ai tre livelli ============ */
+let giostreTutte = [];
+
+async function caricaPrevisione() {
+  let dati;
+  try {
+    dati = await json('/api/previsione');
+  } catch (e) {
+    el('tot-valore').classList.remove('skeleton');
+    el('tot-valore').textContent = '—';
+    mostraErrore(el('tot-meta'), e.message);
+    return;
+  }
+
+  /* --- totale --- */
+  const tot = dati.totale || {};
+  const valore = el('tot-valore');
+  valore.classList.remove('skeleton');
+  if (tot.errore || tot.coda == null) {
+    valore.textContent = '—';
+    el('nota-totale').textContent = tot.errore || 'modello non disponibile';
+  } else {
+    valore.textContent = fmt(tot.coda);
+    el('tot-barra-wrap').className = 'barra barra-hero ' + livello(tot.coda);
+    el('tot-barra').style.width = perc(tot.coda) + '%';
+    el('nota-totale').textContent = badgeModello(tot);
+  }
+
+  el('tot-giorno').textContent = dataLunga(dati.giorno);
+
+  const cal = dati.calendario || {}, meteo = dati.meteo || {};
+  el('tot-meta').innerHTML = [
+    ['🌡️', fmt(meteo.media_tmp) + ' °C', 'Temp. percepita'],
+    ['🌧️', fmt(meteo.precip_tmp, 2) + ' mm', 'Precipitazioni'],
+    ['📅', maiuscola(cal.tipo_giorno || '—'), 'Tipo di giorno'],
+    ['🎡', cal.alta_stagione ? 'Sì' : 'No', 'Alta stagione'],
+  ].map(([ico, v, etichetta]) =>
+    `<div class="meta"><b>${v}</b><small>${ico} ${etichetta}</small></div>`
+  ).join('');
+
+  /* --- reami --- */
+  const reami = dati.reami || {};
+  const boxReami = el('reami');
+  if (reami.errore || !reami.voci) {
+    mostraErrore(boxReami, reami.errore || 'Modello per reame non disponibile.');
+  } else if (!reami.voci.length) {
+    boxReami.innerHTML = '<p class="vuoto">Nessun reame nello storico.</p>';
+  } else {
+    el('nota-reami').textContent = badgeModello(reami);
+    boxReami.innerHTML = reami.voci.map(v => `
+      <article class="card reame-card">
+        <h3>${v.nome}</h3>
+        <div class="reame-val"><b>${fmt(v.coda)}</b><span>minuti di coda media</span></div>
+        <div class="barra ${livello(v.coda)}"><i style="width:${perc(v.coda)}%"></i></div>
+      </article>`).join('');
+  }
+
+  /* --- giostre --- */
+  const giostre = dati.giostre || {};
+  if (giostre.errore || !giostre.voci) {
+    mostraErrore(el('giostre'), giostre.errore || 'Modello per giostra non disponibile.');
+    return;
+  }
+  giostreTutte = giostre.voci;
+  el('nota-giostre').textContent =
+    `${giostreTutte.length} attrazioni · ${badgeModello(giostre)}`;
+
+  const reamiUnici = [...new Set(giostreTutte.map(g => g.reame))].sort();
+  el('filtro-reame').insertAdjacentHTML('beforeend',
+    reamiUnici.map(r => `<option value="${r}">${r}</option>`).join(''));
+
+  disegnaGiostre();
+}
+
+function disegnaGiostre() {
+  const cerca = el('cerca').value.trim().toLowerCase();
+  const reame = el('filtro-reame').value;
+  const ordine = el('ordine').value;
+
+  let voci = giostreTutte.filter(g =>
+    (!reame || g.reame === reame) && g.nome.toLowerCase().includes(cerca));
+
+  if (ordine === 'nome') voci = [...voci].sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+  else if (ordine === 'coda-asc') voci = [...voci].sort((a, b) => a.coda - b.coda);
+  else voci = [...voci].sort((a, b) => b.coda - a.coda);
+
+  const lista = el('giostre');
+  if (!voci.length) {
+    lista.innerHTML = '<p class="vuoto">Nessuna giostra corrisponde ai filtri.</p>';
+    return;
+  }
+
+  lista.innerHTML = voci.map((g, i) => `
+    <li>
+      <span class="pos">${i + 1}</span>
+      <div>
+        <div class="g-nome">${g.nome}</div>
+        <div class="g-reame">${g.reame}</div>
+        <div class="barra g-barra ${livello(g.coda)}"><i style="width:${perc(g.coda)}%"></i></div>
+      </div>
+      <div class="g-val"><b>${fmt(g.coda)}</b><small>minuti</small></div>
+    </li>`).join('');
+}
+
+['cerca', 'filtro-reame', 'ordine'].forEach(id =>
+  el(id).addEventListener('input', disegnaGiostre));
+
+/* ============ Grafici ============ */
+const LAYOUT_BASE = {
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor: 'rgba(0,0,0,0)',
+  font: { color: '#a3aecd', family: 'Segoe UI, system-ui, sans-serif' },
+  margin: { l: 52, r: 52, t: 16, b: 44 },
+  hovermode: 'x unified',
+  legend: { orientation: 'h', y: -0.22 },
+  xaxis: { gridcolor: '#27325c', zerolinecolor: '#27325c' },
+  yaxis: { gridcolor: '#27325c', zerolinecolor: '#27325c' },
+};
+const CONFIG = { responsive: true, displayModeBar: false };
+
+/* Il parco e' chiuso per mesi: senza i giorni mancanti Plotly unirebbe con
+   una retta due stagioni diverse. */
+function serieContinua(voci) {
+  const perGiorno = new Map(voci.map(v => [v.giorno, v]));
+  const giorni = [], coda = [], temp = [];
+  const giorno = new Date(voci[0].giorno + 'T12:00:00');
+  const fine = new Date(voci[voci.length - 1].giorno + 'T12:00:00');
+  while (giorno <= fine) {
+    const iso = giorno.toISOString().slice(0, 10);
+    const v = perGiorno.get(iso);
+    giorni.push(iso);
+    coda.push(v ? v.coda : null);
+    temp.push(v ? v.media_tmp : null);
+    giorno.setDate(giorno.getDate() + 1);
+  }
+  return { giorni, coda, temp };
+}
+
+async function caricaStorico() {
+  let dati;
+  try {
+    dati = await json('/api/storico?giorni=365');
+  } catch (e) {
+    mostraErrore(el('graf-storico'), e.message);
+    return;
+  }
+  const voci = dati.voci || [];
+  if (!voci.length) {
+    el('graf-storico').innerHTML = '<p class="vuoto">Nessun dato storico disponibile.</p>';
+    return;
+  }
+  const { giorni, coda, temp } = serieContinua(voci);
+  Plotly.newPlot('graf-storico', [
+    {
+      x: giorni, y: coda, name: 'Coda media (min)',
+      type: 'scatter', mode: 'lines+markers', connectgaps: false,
+      line: { color: '#7c5cff', width: 2.5 },
+      marker: { size: 4, color: '#7c5cff' },
+    },
+    {
+      x: giorni, y: temp, name: 'Temperatura percepita (°C)',
+      type: 'scatter', mode: 'lines', yaxis: 'y2', connectgaps: false,
+      line: { color: '#22d3ee', width: 2, dash: 'dot' },
+    },
+  ], {
+    ...LAYOUT_BASE,
+    height: 380,
+    yaxis: { ...LAYOUT_BASE.yaxis, title: 'Coda (min)' },
+    yaxis2: { title: '°C', overlaying: 'y', side: 'right', gridcolor: 'rgba(0,0,0,0)' },
+  }, CONFIG);
+}
+
+const ETICHETTE_LIVELLO = { totale: 'Totale parco', reame: 'Per reame', giostra: 'Per giostra' };
+let livelliModelli = [];
+
+async function caricaModelli() {
+  let dati;
+  try {
+    dati = await json('/api/modelli');
+  } catch (e) {
+    mostraErrore(el('graf-modelli'), e.message);
+    return;
+  }
+  livelliModelli = dati.livelli || [];
+  if (!livelliModelli.length) {
+    el('graf-modelli').innerHTML = '<p class="vuoto">Nessun training ancora eseguito.</p>';
+    return;
+  }
+  el('tab-modelli').innerHTML = livelliModelli.map((l, i) =>
+    `<button class="tab" role="tab" aria-selected="${i === 0}" data-i="${i}">
+       ${ETICHETTE_LIVELLO[l.livello] || l.livello}</button>`).join('');
+
+  el('tab-modelli').addEventListener('click', (e) => {
+    const btn = e.target.closest('.tab');
+    if (!btn) return;
+    [...el('tab-modelli').children].forEach(b => b.setAttribute('aria-selected', b === btn));
+    disegnaModelli(Number(btn.dataset.i));
+  });
+
+  disegnaModelli(0);
+}
+
+const MODELLI_IN_GRAFICO = 12;
+
+function disegnaModelli(i) {
+  const l = livelliModelli[i];
+  const tutte = [...(l.metriche || [])].sort((a, b) => b.r2 - a.r2);
+  const metriche = tutte.slice(0, MODELLI_IN_GRAFICO).reverse();
+  const esclusi = tutte.length - metriche.length;
+  el('nota-modelli').textContent =
+    `${tutte.length} modelli confrontati su ${l.n_training_rows} righe · ` +
+    `migliore: ${l.best_model} (R² ${fmt(l.r2, 3)}, MAE ${fmt(l.mae, 2)} min) · ` +
+    `training del ${new Date(l.run_at).toLocaleString('it-IT')}` +
+    (esclusi > 0 ? ` · nel grafico i primi ${metriche.length}` : '');
+
+  Plotly.newPlot('graf-modelli', [{
+    type: 'bar', orientation: 'h',
+    x: metriche.map(m => m.r2),
+    y: metriche.map(m => m.nome),
+    marker: { color: metriche.map(m => m.nome === l.best_model ? '#22d3ee' : '#7c5cff') },
+    hovertemplate: '%{y}<br>R² %{x:.3f}<extra></extra>',
+    text: metriche.map(m => fmt(m.r2, 3)),
+    textposition: 'auto',
+  }], {
+    ...LAYOUT_BASE,
+    height: Math.max(320, metriche.length * 26 + 60),
+    margin: { l: 190, r: 24, t: 10, b: 40 },
+    hovermode: 'closest',
+    xaxis: { ...LAYOUT_BASE.xaxis, title: 'R² (1 = previsione perfetta)' },
+    yaxis: { ...LAYOUT_BASE.yaxis, automargin: true },
+  }, CONFIG);
+}
+
+/* ============ Testata: stato dei dati ============ */
+async function caricaStato() {
+  try {
+    const s = await json('/api/stato');
+    const quando = new Date(s.ultimo_aggiornamento);
+    const testo = isNaN(quando) ? '—' : quando.toLocaleString('it-IT');
+    document.querySelector('.titolo p').textContent =
+      `${s.giostre_monitorate} attrazioni · ${s.giorni_storico} giorni di storico · ` +
+      `${s.rilevazioni.toLocaleString('it-IT')} rilevazioni · ultimo dato ${testo}`;
+  } catch (e) {
+    /* la testata è decorativa: se lo stato non arriva resta il sottotitolo statico */
+  }
+}
+
+caricaPrevisione();
+caricaStorico();
+caricaModelli();
+caricaStato();
+</script>
+</body>
+</html>

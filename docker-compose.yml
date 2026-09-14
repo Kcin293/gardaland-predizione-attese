@@ -12,6 +12,10 @@ services:
     volumes:
       - gardaland_pgdata:/var/lib/postgresql/data
       - ./db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      # Storico dimostrativo: caricato solo alla creazione del volume, cioe'
+      # al primo avvio su una macchina nuova. Chi ha gia' il suo database non
+      # viene toccato.
+      - ./seed/demo_data.sql.gz:/docker-entrypoint-initdb.d/02_demo_data.sql.gz:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-gardaland}"]
       interval: 5s
@@ -31,6 +35,28 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-gardaland}
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
+    volumes:
+      - gardaland_models:/app/models
+
+  api:
+    build: .
+    container_name: gardaland-api
+    restart: unless-stopped
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-gardaland}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+    ports:
+      - "8000:8000"
+    volumes:
+      - gardaland_models:/app/models
 
 volumes:
   gardaland_pgdata:
+  gardaland_models:

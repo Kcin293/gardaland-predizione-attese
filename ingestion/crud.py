@@ -40,3 +40,43 @@ def print_meteo_count(engine):
 def get_totale_giornaliero(engine):
     risultato = pd.read_sql("SELECT * FROM totale_giornaliero", engine)
     return risultato
+
+def get_coda_per_giostra(engine):
+    """Media giornaliera della coda per singola giostra, gia' unita al meteo
+    del giorno. Una riga = (giorno, giostra)."""
+    query = """
+        SELECT c.giorno, c.nome, c.categoria,
+               c.media_coda AS coda,
+               t.media_tmp, t.precip_tmp
+          FROM coda_giornaliera c
+          JOIN temp_giornaliera t ON t.giorno = c.giorno
+         ORDER BY c.giorno, c.nome
+    """
+    return pd.read_sql(query, engine)
+
+
+def get_coda_per_reame(engine):
+    """Media giornaliera della coda per reame (la 'land' di queue-times),
+    calcolata su tutte le rilevazioni delle giostre aperte di quel reame."""
+    query = """
+        SELECT g.last_updated::date AS giorno,
+               g.categoria,
+               avg(g.wait_time) AS coda,
+               t.media_tmp, t.precip_tmp
+          FROM giostre g
+          JOIN temp_giornaliera t ON t.giorno = g.last_updated::date
+         WHERE g.is_open IS TRUE
+         GROUP BY g.last_updated::date, g.categoria, t.media_tmp, t.precip_tmp
+         ORDER BY 1, 2
+    """
+    return pd.read_sql(query, engine)
+
+
+def get_elenco_giostre(engine):
+    """Giostre viste almeno una volta, con il loro reame."""
+    query = """
+        SELECT DISTINCT nome, categoria
+          FROM giostre
+         ORDER BY categoria, nome
+    """
+    return pd.read_sql(query, engine)
